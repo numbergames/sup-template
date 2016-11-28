@@ -7,20 +7,20 @@ var userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  // password: {
-  //   type: String,
-  //   required: true
-  // }
+  password: {
+    type: String,
+    required: true
+  }
 });
 
-// userSchema.methods.validatePassword = function (password, callback) {
-//   bcrypt.compare(password, this.password, function (error, isValid) {
-//     if (error) {
-//       callback(error);
-//       return;
-//     }
-//     callback(null, isValid);
-//   })
-// };
+userSchema.methods.validatePassword = function (password, callback) {
+  bcrypt.compare(password, this.password, function (error, isValid) {
+    if (error) {
+      callback(error);
+      return;
+    }
+    callback(null, isValid);
+  })
+};
 
 module.exports = mongoose.model('User', userSchema);

@@ -10,37 +10,46 @@ var DATABASE_URL = 'mongodb://localhost/sup';
 var User = require('./models/user');
 var Message = require('./models/message');
 
-// var bcrypt = require('bcrypt');
-// var passport = require('passport');
-// var BasicStrategy = require('passport-http').BasicStrategy;
+var bcrypt = require('bcrypt');
+var passport = require('passport');
+var BasicStrategy = require('passport-http').BasicStrategy;
 
 app.use(bodyParser.json());
 
-// var basicStrategy = new BasicStrategy(function (username, password, callback) {
-//   User.findOne({ username: username }, function (error, user) {
-//     if (error) {
-//       return callback(error);
-//     }
-//     if (!user) {
-//       return callback(null, false, { message: "Incorrect username" });
-//     }
-//     user.validatePassword(password, function (error, isValid) {
-//       if (error) {
-//         return callback(error);
-//       }
-//       if (!isValid) {
-//         return callback(null, false, { message: "Incorrect password" });
-//       }
-//       return callback(null, user);
-//     })
-//   });
-// });
+var basicStrategy = new BasicStrategy(function (username, password, callback) {
+  User.findOne({ username: username }, function (error, user) {
+    if (error) {
+      return callback(error);
+    }
+    if (!user) {
+      return callback(null, false, { message: "Incorrect username" });
+    }
+    user.validatePassword(password, function (error, isValid) {
+      if (error) {
+        return callback(error);
+      }
+      if (!isValid) {
+        return callback(null, false, { message: "Incorrect password" });
+      }
+      return callback(null, user);
+    })
+  });
+});
 
-// passport.use(basicStrategy);
+passport.use(basicStrategy);
 
 // ================ User Routes ===================
 
 // production: remove password hashes from returned user list
+// 
+app.get('/hidden', passport.authenticate('basic', {
+    session: false
+}), function (req, res) {
+    res.json({
+        message: 'Luke... I am your father'
+    });
+}); 
+
 app.get('/users', (req, res) => {
   User.find()
   .then(users => {
@@ -62,14 +71,28 @@ app.get('/users/:userId', (req, res) => {
 
 // get password, hash it, save it
 app.post('/users', function (req, res) {
-  User.create(req.body)
-  .then(function(item) {
-    res.location(`/users/${item._id}`).status(201).json({});
+  var {username, password} = req.body;
+  bcrypt.genSalt(10, function(error, salt) {
+    if (error) {
+      return res.status(500).json({message: 'Internal server error'});
+    }
+    bcrypt.hash(password, salt, function(error, hash) {
+      if (error) {
+        return res.status(500).json({message: 'Internal server error'});
+      }
+      var newUser = {username: username,
+        password: hash};
+
+      User.create(newUser)
+      .then(function(item) {
+        res.location(`/users/${item._id}`).status(201).json({});
+      })
+      .catch(function(err) {
+        console.log(err.errors);
+        res.status(422).json({ message: "Mongoose save threw an error" });
+      });
+    })
   })
-  .catch(function(err) {
-    console.log(err.errors);
-    res.status(422).json({ message: "Mongoose save threw an error" });
-  });
 });
 
 // handle password change in addition to name change
