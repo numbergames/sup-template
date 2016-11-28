@@ -40,25 +40,31 @@ passport.use(basicStrategy);
 
 // ================ User Routes ===================
 
-app.get('/hidden', passport.authenticate('basic', {
-    session: false
-}), function (req, res) {
-    res.json({
-        message: 'Luke... I am your father'
-    });
-});
 
-// production: remove password hashes from returned user list
-app.get('/users', (req, res) => {
+var compIds = (a, b) => a.toString() === b.toString();
+
+app.get('/user-dev', (req, res) => {
   User.find()
   .then(users => {
     res.status(200).json(users);
   });
 });
 
+// production: remove password hashes from returned user list
+app.get('/users', (req, res) => {
+  User.find()
+  .then(users => {
+    var usernames = users.map(user => user.username);
+    res.status(200).json(usernames);
+  });
+});
+
 // production: authenticate & return full user object?
-app.get('/users/:userId', (req, res) => {
-  User.findById(req.params.userId)
+app.get('/users/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
+  if (!compIds(req.params._id, req.user._id)) {
+    return res.status(401).json({message: 'Unauthorised'});
+  }
+  User.findById(req.params._id)
   .then((item) => {
     if (item) {
       res.status(200).json(item);
@@ -112,18 +118,41 @@ app.post('/users', function (req, res) {
 
 // handle password change in addition to name change
 // production: require authentication before changes
-app.put('/users/:_id', (req, res) => {
-  User.findOneAndUpdate(
-    req.params,
-    { username: req.body.username },
-    { upsert: true, runValidators: true }
-  )
-  .then(user => {
-    res.status(200).json({});
-  })
-  .catch(err => {
-    res.status(422).json({ message: err.errors.username.message });
+app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
+  if (!compIds(req.params._id, req.user._id)) {
+    return res.status(401).json({message: 'Unauthorised'});
+  }
+
+  var username = req.body.username || req.user.username;
+  var passwordHash = null;
+
+  if (req.body.password) {
+   bcrypt.genSalt(10, function(error, salt) {
+    if (error) {
+      return res.status(500).json({message: 'Internal server error'});
+    }
+    bcrypt.hash(req.body.password, salt, function(error, hash) {
+      if (error) {
+        return res.status(500).json({message: 'Internal server error'});
+      }
+      passwordHash = hash;
+    })
   });
+ }
+ console.log(passwordHash);
+var password = passwordHash || req.user.password;
+
+ User.findOneAndUpdate(
+  req.params,
+  { username: req.body.username, password: password },
+  { upsert: true, runValidators: true }
+  )
+ .then(user => {
+  res.status(200).json({});
+})
+ .catch(err => {
+  res.status(422).json({ message: "Update threw error" });
+});
 });
 
 // production: authenticate first
@@ -209,13 +238,18 @@ app.post('/messages', passport.authenticate('basic', {session: false}), (req, re
 });
 
 // production: authenticate either to or from
-app.get('/messages/:_id', (req, res) => {
+app.get('/messages/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
+  var authId = req.user._id;
   Message.findOne(req.params)
   .populate('from')
   .populate('to')
   .then(message => {
     if (message) {
-      res.status(200).json(message);
+      if (compIds(message.from._id, authId) || compIds(message.to._id, authId)) {
+        res.status(200).json(message);
+      } else {
+        return res.json({message: 'Unauthorised'});
+      }
     } else {
       res.status(404).json({ message: 'Message not found' });
     }
