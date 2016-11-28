@@ -10,10 +10,37 @@ var DATABASE_URL = 'mongodb://localhost/sup';
 var User = require('./models/user');
 var Message = require('./models/message');
 
+// var bcrypt = require('bcrypt');
+// var passport = require('passport');
+// var BasicStrategy = require('passport-http').BasicStrategy;
+
 app.use(bodyParser.json());
+
+// var basicStrategy = new BasicStrategy(function (username, password, callback) {
+//   User.findOne({ username: username }, function (error, user) {
+//     if (error) {
+//       return callback(error);
+//     }
+//     if (!user) {
+//       return callback(null, false, { message: "Incorrect username" });
+//     }
+//     user.validatePassword(password, function (error, isValid) {
+//       if (error) {
+//         return callback(error);
+//       }
+//       if (!isValid) {
+//         return callback(null, false, { message: "Incorrect password" });
+//       }
+//       return callback(null, user);
+//     })
+//   });
+// });
+
+// passport.use(basicStrategy);
 
 // ================ User Routes ===================
 
+// production: remove password hashes from returned user list
 app.get('/users', (req, res) => {
   User.find()
   .then(users => {
@@ -21,6 +48,7 @@ app.get('/users', (req, res) => {
   });
 });
 
+// production: authenticate & return full user object?
 app.get('/users/:userId', (req, res) => {
   User.findById(req.params.userId)
   .then((item) => {
@@ -32,16 +60,20 @@ app.get('/users/:userId', (req, res) => {
   });
 });
 
+// get password, hash it, save it
 app.post('/users', function (req, res) {
   User.create(req.body)
   .then(function(item) {
     res.location(`/users/${item._id}`).status(201).json({});
   })
   .catch(function(err) {
-    res.status(422).json({ message: err.errors.username.message });
+    console.log(err.errors);
+    res.status(422).json({ message: "Mongoose save threw an error" });
   });
 });
 
+// handle password change in addition to name change
+// production: require authentication before changes
 app.put('/users/:_id', (req, res) => {
   User.findOneAndUpdate(
     req.params,
@@ -56,6 +88,7 @@ app.put('/users/:_id', (req, res) => {
   });
 });
 
+// production: authenticate first
 app.delete('/users/:_id', function(req, res) {
   User.findOneAndRemove(req.params)
   .then(user => {
@@ -69,6 +102,8 @@ app.delete('/users/:_id', function(req, res) {
 
 // ============ Message Routes ======================
 
+// ?? disable global message query in production?
+// production: authenticate user, return only that user's messages
 app.get('/messages', (req, res) => {
   Message.find(req.query)
   .populate('from')
@@ -78,6 +113,7 @@ app.get('/messages', (req, res) => {
   });
 });
 
+// production: authenticate the 'from' user
 app.post('/messages', (req, res) => {
 
   new Promise((resolve, reject) => {
@@ -118,6 +154,7 @@ app.post('/messages', (req, res) => {
 
 });
 
+// production: authenticate either to or from
 app.get('/messages/:_id', (req, res) => {
   Message.findOne(req.params)
   .populate('from')
