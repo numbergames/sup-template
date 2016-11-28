@@ -1,4 +1,4 @@
-global.databaseUri = 'mongodb://localhost/sup-dev';
+global.databaseUri = 'mongodb://localhost/sup';
 
 var chai = require('chai');
 var chaiHttp = require('chai-http');
@@ -38,7 +38,6 @@ describe('User endpoints', function() {
                         res.body.length.should.equal(0);
                     });
             });
-
             it('should return a list of users', function() {
                 var user = {
                     username: 'joe'
@@ -176,7 +175,6 @@ describe('User endpoints', function() {
                         spy.called.should.be.false;
                     });
             });
-
             it('should return a single user', function() {
                 var user = {
                     username: 'joe'

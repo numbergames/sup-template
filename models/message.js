@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 
-var MessageSchema = new mongoose.Schema({
+var messageSchema = new mongoose.Schema({
     from: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -17,6 +17,4 @@ var MessageSchema = new mongoose.Schema({
     }
 });
 
-var Message = mongoose.model('Message', MessageSchema);
-
-module.exports = Message;
+module.exports = mongoose.model('Message', messageSchema);
