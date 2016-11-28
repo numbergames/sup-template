@@ -40,16 +40,15 @@ passport.use(basicStrategy);
 
 // ================ User Routes ===================
 
-// production: remove password hashes from returned user list
-// 
 app.get('/hidden', passport.authenticate('basic', {
     session: false
 }), function (req, res) {
     res.json({
         message: 'Luke... I am your father'
     });
-}); 
+});
 
+// production: remove password hashes from returned user list
 app.get('/users', (req, res) => {
   User.find()
   .then(users => {
@@ -72,6 +71,22 @@ app.get('/users/:userId', (req, res) => {
 // get password, hash it, save it
 app.post('/users', function (req, res) {
   var {username, password} = req.body;
+
+  if (!username || typeof username !== 'string') {
+    console.log('invalid username');
+    //send error
+  }
+  if (!password || typeof password !== 'string') {
+    console.log('invalid password');
+    // send error
+  }
+  User.findOne({username: username}, function (error, user) {
+    if (user) {
+      console.log('dup user');
+      // send error -- dup username
+    }
+  })
+
   bcrypt.genSalt(10, function(error, salt) {
     if (error) {
       return res.status(500).json({message: 'Internal server error'});
@@ -127,17 +142,29 @@ app.delete('/users/:_id', function(req, res) {
 
 // ?? disable global message query in production?
 // production: authenticate user, return only that user's messages
-app.get('/messages', (req, res) => {
+app.get('/messages', passport.authenticate('basic', {session: false}), (req, res) => {
+  console.log(req.query)
+// do user's query
+// filter results on authed users name (either in from or to)
+  var authId = req.user._id.toString();
+
   Message.find(req.query)
   .populate('from')
   .populate('to')
   .then(messages => {
-    res.status(200).json(messages);
+    var userMessages = messages.filter(
+      message => message.from._id.toString() === authId ||
+        message.to._id.toString() === authId);
+
+    res.status(200).json(userMessages);
   });
 });
 
+//curl -X POST -u bob:easy -H "Content-Type: application/json" -d {"from":"583c835c8628406d25d7519b", "to":"583c8792c759b76dba78e5a5", "text":"auth message"}' http://localhost:8080/messages
+
 // production: authenticate the 'from' user
-app.post('/messages', (req, res) => {
+app.post('/messages', passport.authenticate('basic', {session: false}), (req, res) => {
+  console.log(req.user);
 
   new Promise((resolve, reject) => {
     if (!req.body.text) {
@@ -148,6 +175,10 @@ app.post('/messages', (req, res) => {
       if (typeof req.body[property] !== "string") {
         reject(`Incorrect field type: ${property}`);
       }
+    }
+
+    if (req.body.from !== req.user._id.toString()) {
+      reject('Did not authenticate as the "from" user.');
     }
 
     resolve(Promise.all([
