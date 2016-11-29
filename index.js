@@ -5,7 +5,8 @@ mongoose.Promise = global.Promise;
 
 var app = express();
 
-var DATABASE_URL = 'mongodb://localhost/sup';
+// var DATABASE_URL = 'mongodb://localhost/sup';
+var DATABASE_URL = 'mongodb://localhost/sup-dev';
 
 var User = require('./models/user');
 var Message = require('./models/message');
@@ -53,10 +54,10 @@ app.get('/user-dev', (req, res) => {
 
 // production: remove password hashes from returned user list
 app.get('/users', (req, res) => {
-  User.find()
+  User.find().select('username')
   .then(users => {
-    var usernames = users.map(user => user.username);
-    res.status(200).json(usernames);
+    //var usernames = users.map(user => user.username);
+    res.status(200).json(users);
   });
 });
 
