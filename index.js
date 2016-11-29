@@ -81,14 +81,14 @@ app.post('/users', function (req, res) {
   var {username, password} = req.body;
 
   if (!username || typeof username !== 'string') {
-    console.log('invalid username');
+    return res.status(422).json({message: 'Missing or incorrect field: username'});
   }
   if (!password || typeof password !== 'string') {
-    console.log('invalid password');
+    return res.status(422).json({message: 'Missing or incorrect field: password'});
   }
   User.findOne({username: username}, function (error, user) {
     if (user) {
-      console.log('dup user');
+    return res.status(422).json({message: 'Duplicate user'});
     }
   })
 
@@ -124,6 +124,13 @@ app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, r
     return res.status(401).json({message: 'Unauthorised'});
   }
   var newUser = {};
+
+  if (username && typeof username !== 'string') {
+    return res.status(422).json({message: 'Missing or incorrect field: username'});
+  }
+  if (password && typeof password !== 'string') {
+    return res.status(422).json({message: 'Missing or incorrect field: password'});
+  }
 
   if (req.body.username) {
     console.log('has username', req.body.username);

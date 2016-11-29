@@ -25,7 +25,7 @@ describe('User endpoints', function() {
   });
 
   describe('/users', function() {
-    describe.only('GET', function() {
+    describe('GET', function() {
       it('should return an empty list of users initially', function() {
         // Get the list of users
         return chai.request(app)
@@ -71,7 +71,8 @@ describe('User endpoints', function() {
     describe('POST', function() {
       it('should allow adding a user', function() {
         var user = {
-          username: 'joe'
+          username: 'joe',
+          password: 'letmein'
         };
 
         // Add a user
@@ -101,7 +102,7 @@ describe('User endpoints', function() {
         });
       });
       it('should reject users without a username', function() {
-        var user = {};
+        var user = {password: 'letmein'};
         var spy = makeSpy();
         // Add a user without a username
         return chai.request(app)
@@ -117,7 +118,7 @@ describe('User endpoints', function() {
           res.charset.should.equal('utf-8');
           res.body.should.be.an('object');
           res.body.should.have.property('message');
-          res.body.message.should.equal('Missing field: username');
+          res.body.message.should.equal('Missing or incorrect field: username');
         })
         .then(function() {
           // Check that the request didn't succeed
@@ -125,7 +126,28 @@ describe('User endpoints', function() {
         });
       });
       it('should reject users without a password', function () {
-        //
+        var user = {username: 'joe2'};
+        var spy = makeSpy();
+        // Add a user without a username
+        return chai.request(app)
+        .post(this.listPattern.stringify())
+        .send(user)
+        .then(spy)
+        .catch(function(err) {
+          // If the request fails, make sure it contains the
+          // error
+          var res = err.response;
+          res.should.have.status(422);
+          res.type.should.equal('application/json');
+          res.charset.should.equal('utf-8');
+          res.body.should.be.an('object');
+          res.body.should.have.property('message');
+          res.body.message.should.equal('Missing or incorrect field: password');
+        })
+        .then(function() {
+          // Check that the request didn't succeed
+          spy.called.should.be.false;
+        });
       });
       it('should reject non-string usernames', function() {
         var user = {
@@ -146,7 +168,7 @@ describe('User endpoints', function() {
           res.charset.should.equal('utf-8');
           res.body.should.be.an('object');
           res.body.should.have.property('message');
-          res.body.message.should.equal('Incorrect field type: username');
+          res.body.message.should.equal('Missing or incorrect field: username');
         })
         .then(function() {
           // Check that the request didn't succeed
@@ -158,43 +180,42 @@ describe('User endpoints', function() {
 
   describe('/users/:userId', function() {
     describe('GET', function() {
-      it('should 404 on non-existent users', function() {
-        var spy = makeSpy();
-        // Request a non-existent user
-        return chai.request(app)
-        .get(this.singlePattern.stringify({userId: '000000000000000000000000'}))
-        .then(spy)
-        .catch(function(err) {
-          // If the request fails, make sure it contains the
-          // error
-          var res = err.response;
-          res.should.have.status(404);
-          res.type.should.equal('application/json');
-          res.charset.should.equal('utf-8');
-          res.body.should.be.an('object');
-          res.body.should.have.property('message');
-          res.body.message.should.equal('User not found');
-        })
-        .then(function() {
-          // Check that the request didn't succeed
-          spy.called.should.be.false;
-        });
-      });
+      // it('should 404 on non-existent users', function() {
+      //   var spy = makeSpy();
+      //   // Request a non-existent user
+      //   return chai.request(app)
+      //   .get(this.singlePattern.stringify({userId: '000000000000000000000000'}))
+      //   .then(spy)
+      //   .catch(function(err) {
+      //     // If the request fails, make sure it contains the
+      //     // error
+      //     var res = err.response;
+      //     res.should.have.status(404);
+      //     res.type.should.equal('application/json');
+      //     res.charset.should.equal('utf-8');
+      //     res.body.should.be.an('object');
+      //     res.body.should.have.property('message');
+      //     res.body.message.should.equal('User not found');
+      //   })
+      //   .then(function() {
+      //     // Check that the request didn't succeed
+      //     spy.called.should.be.false;
+      //   });
+      // });
       it('should return a single user', function() {
         var user = {
-          username: 'joe'
+          username: 'joe',
+          password: 'letmein'
         };
-        var userId;
-        // Add a user to the database
-        return new User(user).save()
-        .then(function(res) {
-          userId = res._id.toString();
-          // Make a request for the user
-          return chai.request(app)
-          .get(this.singlePattern.stringify({
-            userId: userId
-          }));
-        }.bind(this))
+        return chai.request(app)
+              .post(this.listPattern.stringify())
+              .send(user)
+              .then(function (res) {
+                  var params = this.singlePattern.match(res.headers.location);
+                  return chai.request(app)
+                  .get('/users/' + params.userId)
+                  .auth(user.username, user.password)
+                }.bind(this))
         .then(function(res) {
           // Check that the user's information is returned
           res.should.have.status(200);
@@ -206,30 +227,29 @@ describe('User endpoints', function() {
           res.body.username.should.equal(user.username);
           res.body.should.have.property('_id');
           res.body._id.should.be.a('string');
-          res.body._id.should.equal(userId)
+          res.body.password.should.be.a('string');
         });
       });
     });
 
-    describe('PUT', function() {
-      it('should allow editing a user', function() {
+    describe.only('PUT', function() {
+      it('should allow editing a username', function() {
         var oldUser = {
-          username: 'joe'
+          username: 'joe',
+          password: 'letmein'
         };
         var newUser = {
           username: 'joe2'
         };
-        var userId;
-        // Add a user to the database
-        return new User(oldUser).save()
-        .then(function(res) {
-          userId = res._id.toString();
-          // Make a request to modify the user
+        chai.request(app)
+        .post(this.listPattern.stringify())
+        .send(oldUser)
+        .then(function(res){
+          var params = this.singlePattern.match(res.headers.location);
           return chai.request(app)
-          .put(this.singlePattern.stringify({
-            userId: userId
-          }))
-          .send(newUser);
+          .put('/users/' + params.userId)
+          .auth(user.username, user.password)
+          .send(newUser)
         }.bind(this))
         .then(function(res) {
           // Check that an empty object was returned
@@ -250,77 +270,83 @@ describe('User endpoints', function() {
           res.username.should.equal(newUser.username);
         });
       });
-      it('should create a user if they don\'t exist', function() {
-        var user = {
-          _id: '000000000000000000000000',
-          username: 'joe'
-        };
-        // Request to add a new user
-        return chai.request(app)
-        .put(this.singlePattern.stringify({
-          userId: user._id
-        }))
-        .send(user)
-        .then(function(res) {
-          // Check that an empty object was returned
-          res.should.have.status(200);
-          res.type.should.equal('application/json');
-          res.charset.should.equal('utf-8');
-          res.body.should.be.an('object');
-          res.body.should.be.empty;
+      // it('should create a user if they don\'t exist', function() {
+      //   var user = {
+      //     _id: '000000000000000000000000',
+      //     username: 'joe'
+      //   };
+      //   // Request to add a new user
+      //   return chai.request(app)
+      //   .put(this.singlePattern.stringify({
+      //     userId: user._id
+      //   }))
+      //   .send(user)
+      //   .then(function(res) {
+      //     // Check that an empty object was returned
+      //     res.should.have.status(200);
+      //     res.type.should.equal('application/json');
+      //     res.charset.should.equal('utf-8');
+      //     res.body.should.be.an('object');
+      //     res.body.should.be.empty;
 
-          // Fetch the user from the database
-          return User.findById(user._id).exec();
-        })
-        .then(function(res) {
-          // Check that the user has been added
-          should.exist(res);
-          res.should.have.property('username');
-          res.username.should.be.a('string');
-          res.username.should.equal(user.username);
-        });
-      });
-      it('should reject users without a username', function() {
-        var user = {
-          _id: '000000000000000000000000'
-        };
-        var spy = makeSpy();
-        // Add a user without a username
-        return chai.request(app)
-        .put(this.singlePattern.stringify({
-          userId: user._id
-        }))
-        .send(user)
-        .then(spy)
-        .catch(function(err) {
-          // If the request fails, make sure it contains the
-          // error
-          var res = err.response;
-          res.should.have.status(422);
-          res.type.should.equal('application/json');
-          res.charset.should.equal('utf-8');
-          res.body.should.be.an('object');
-          res.body.should.have.property('message');
-          res.body.message.should.equal('Missing field: username');
-        })
-        .then(function() {
-          // Check that the request didn't succeed
-          spy.called.should.be.false;
-        });
-      });
+      //     // Fetch the user from the database
+      //     return User.findById(user._id).exec();
+      //   })
+      //   .then(function(res) {
+      //     // Check that the user has been added
+      //     should.exist(res);
+      //     res.should.have.property('username');
+      //     res.username.should.be.a('string');
+      //     res.username.should.equal(user.username);
+      //   });
+      // });
+      // it('should reject edit without authentication', function() {
+      //   var user = {
+      //     _id: '000000000000000000000000'
+      //   };
+      //   var spy = makeSpy();
+      //   // Add a user without a username
+      //   return chai.request(app)
+      //   .put(this.singlePattern.stringify({
+      //     userId: user._id
+      //   }))
+      //   .send(user)
+      //   .then(spy)
+      //   .catch(function(err) {
+      //     // If the request fails, make sure it contains the
+      //     // error
+      //     var res = err.response;
+      //     res.should.have.status(422);
+      //     res.type.should.equal('application/json');
+      //     res.charset.should.equal('utf-8');
+      //     res.body.should.be.an('object');
+      //     res.body.should.have.property('message');
+      //     res.body.message.should.equal('Missing field: username');
+      //   })
+      //   .then(function() {
+      //     // Check that the request didn't succeed
+      //     spy.called.should.be.false;
+      //   });
+      // });
       it('should reject non-string usernames', function() {
-        var user = {
-          _id: '000000000000000000000000',
-          username: 42
+        var oldUser = {
+          username: 'joe',
+          password: 'letmein'
         };
-        var spy = makeSpy();
-        // Add a user with a non-string username
-        return chai.request(app)
-        .put(this.singlePattern.stringify({
-          userId: user._id
-        }))
-        .send(user)
-        .then(spy)
+        var newUser = {
+          username: 2
+        };
+        chai.request(app)
+        .post(this.listPattern.stringify())
+        .send(oldUser)
+        .then(function(res){
+          var params = this.singlePattern.match(res.headers.location);
+          return chai.request(app)
+          .put('/users/' + params.userId)
+          .auth(user.username, user.password)
+          .send(newUser)
+          .then(spy)          
+        }.bind(this))
         .catch(function(err) {
           // If the request fails, make sure it contains the
           // error
