@@ -15,12 +15,20 @@ var userSchema = new mongoose.Schema({
   }
 });
 
-userSchema.methods.validatePassword = function (password, callback) {
-  bcrypt.compare(password, this.password)
-  .then(isValid => {
-    callback(null, isValid);
-  })
-  .catch(callback);
+userSchema.methods.validatePassword = function(password) {
+  // Return a new Promise object
+  return new Promise((resolve, reject) => {
+
+    // run bcrypt compare, then resolve or reject
+    bcrypt.compare(password, this.password).then( valid =>  {
+      // executes the promise's then()
+      resolve(valid);
+    }).catch( err => {
+      // executes the promise's catch()
+      reject(err);
+    });
+
+  });
 };
 
 module.exports = mongoose.model('User', userSchema);

@@ -18,24 +18,21 @@ var BasicStrategy = require('passport-http').BasicStrategy;
 
 app.use(bodyParser.json());
 
-var basicStrategy = new BasicStrategy(function (username, password, done) {
-  User.findOne({ username })
-  .then(user => {
-    if (!user) {
-      return done(null, false, { message: "Incorrect username" });
-    }
-    user.validatePassword(password, (error, isValid) => {
-      // if (error) {
-      //   return done(error);
-      // }
-      if (!isValid || error) {
-        return done(null, false, { message: "Incorrect password" });
-      }
-      return done(null, user);
-    });
-    // .catch(done);
-  })
+var basicStrategy = new BasicStrategy((username, password, done) => {
+  // Note 'callback' is passport's built-in function named 'verified'
+  // https://github.com/jaredhanson/passport-http/blob/f7a163f5d47c96c0be74d9af30c1c0b376cc57d9/lib/passport-http/strategies/basic.js#L88
 
+  User.findOne({ username: username }).then( user => {
+
+    if (!user) return done(null, false);
+
+    user.validatePassword(password).then( isValid => {
+
+      if (!isValid) {return done(null, false);}
+      done(null, user);
+
+    }).catch(done);
+  })
   .catch(done);
 });
 
@@ -110,7 +107,7 @@ app.post('/users', function (req, res) {
         res.location(`/users/${item._id}`).status(201).json({});
       })
       .catch(function(err) {
-        console.log(err.errors);
+        // console.log(err.errors);
         res.status(422).json({ message: "Mongoose save threw an error" });
       });
     });
@@ -172,7 +169,8 @@ app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, r
 
 // production: authenticate first
 app.delete('/users/:_id', passport.authenticate('basic', {session: false}), function(req, res) {
-  console.log('delete', req.user);
+  // console.log('delete', req.user);
+
   if (!compIds(req.user._id, req.params._id)) {
     return res.status(401).json({ message: 'Unauthorised' });
   }

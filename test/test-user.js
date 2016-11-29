@@ -232,7 +232,7 @@ describe('User endpoints', function() {
       });
     });
 
-    describe.only('PUT', function() {
+    describe('PUT', function() {
       it('should allow editing a username', function() {
         var oldUser = {
           username: 'joe',
@@ -345,7 +345,7 @@ describe('User endpoints', function() {
           .put('/users/' + params.userId)
           .auth(user.username, user.password)
           .send(newUser)
-          .then(spy)          
+          .then(spy)
         }.bind(this))
         .catch(function(err) {
           // If the request fails, make sure it contains the
@@ -365,43 +365,57 @@ describe('User endpoints', function() {
       });
     });
 
-    describe('DELETE', function() {
-      it('should 404 on non-existent users', function() {
-        var spy = makeSpy();
-        // Try to delete a non-existent user
-        return chai.request(app)
-        .delete(this.singlePattern.stringify({userId: '000000000000000000000000'}))
-        .then(spy)
-        .catch(function(err) {
-          // If the request fails, make sure it contains the
-          // error
-          var res = err.response;
-          res.should.have.status(404);
-          res.type.should.equal('application/json');
-          res.charset.should.equal('utf-8');
-          res.body.should.be.an('object');
-          res.body.should.have.property('message');
-          res.body.message.should.equal('User not found');
-        })
-        .then(function() {
-          // Check that the request didn't succeed
-          spy.called.should.be.false;
-        });
-      });
-      it('should delete a user', function() {
+    describe.only('DELETE', function() {
+      it('should 401 when not authenticated', function() {
         var user = {
-          username: 'joe'
+          username: 'joe',
+          password: 'letmein'
         };
-        var userId;
-        // Create a user in the database
-        return new User(user).save()
+        return chai.request(app)
+        .post(this.listPattern.stringify())
+        .send(user)
         .then(function(res) {
-          userId = res._id.toString();
+          var userId = this.singlePattern.match(res.headers.location).userId;
           // Request to delete the user
           return chai.request(app)
           .delete(this.singlePattern.stringify({
             userId: userId
-          }));
+          }))
+          .auth(user.username, 'badpassword');
+        }.bind(this))
+        .catch(function(res) {
+          // console.log(res);
+          // Make sure that an empty object was returned
+          res.should.have.status(500);
+          // res.type.should.equal('application/json');
+          // res.charset.should.equal('utf-8');
+          // res.body.should.be.an('object');
+          // res.body.should.be.empty;
+
+          // Try to fetch the user from the database
+          return User.findOne({username: user.username});
+        })
+        .then(function(res) {
+          // Make sure that user can still be fetched
+          should.exist(res);
+        });
+      });
+      it('should delete a user if authenticated as that user', function() {
+        var user = {
+          username: 'joe',
+          password: 'letmein'
+        };
+        return chai.request(app)
+        .post(this.listPattern.stringify())
+        .send(user)
+        .then(function(res) {
+          var userId = this.singlePattern.match(res.headers.location).userId;
+          // Request to delete the user
+          return chai.request(app)
+          .delete(this.singlePattern.stringify({
+            userId: userId
+          }))
+          .auth(user.username, user.password);
         }.bind(this))
         .then(function(res) {
           // Make sure that an empty object was returned
@@ -412,7 +426,7 @@ describe('User endpoints', function() {
           res.body.should.be.empty;
 
           // Try to fetch the user from the database
-          return User.findById(userId);
+          return User.findOne({username: user.username});
         })
         .then(function(res) {
           // Make sure that no user could be fetched
