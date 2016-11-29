@@ -170,7 +170,7 @@ app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, r
 // production: authenticate first
 app.delete('/users/:_id', passport.authenticate('basic', {session: false}), function(req, res) {
   // console.log('delete', req.user);
-
+    console.log("I caught it");
   if (!compIds(req.user._id, req.params._id)) {
     return res.status(401).json({ message: 'Unauthorised' });
   }

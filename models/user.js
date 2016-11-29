@@ -24,7 +24,7 @@ userSchema.methods.validatePassword = function(password) {
       // executes the promise's then()
       resolve(valid);
     }).catch( err => {
-      // executes the promise's catch()
+      // executes the promise's catch() 
       reject(err);
     });
 
