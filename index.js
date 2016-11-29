@@ -24,14 +24,15 @@ var basicStrategy = new BasicStrategy(function (username, password, done) {
       return done(null, false, { message: "Incorrect username" });
     }
     user.validatePassword(password, (error, isValid) => {
-      if (error) {
-        return done(error);
-      }
-      if (!isValid) {
+      // if (error) {
+      //   return done(error);
+      // }
+      if (!isValid || error) {
         return done(null, false, { message: "Incorrect password" });
       }
       return done(null, user);
     });
+    // .catch(done);
   })
 
   .catch(done);
@@ -162,7 +163,11 @@ app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, r
 });
 
 // production: authenticate first
-app.delete('/users/:_id', function(req, res) {
+app.delete('/users/:_id', passport.authenticate('basic', {session: false}), function(req, res) {
+  console.log('delete', req.user);
+  if (!compIds(req.user._id, req.params._id)) {
+    return res.status(401).json({ message: 'Unauthorised' });
+  }
   User.findOneAndRemove(req.params)
   .then(user => {
     if (!user) {
