@@ -17,24 +17,24 @@ var BasicStrategy = require('passport-http').BasicStrategy;
 
 app.use(bodyParser.json());
 
-var basicStrategy = new BasicStrategy(function (username, password, callback) {
-  User.findOne({ username: username }, function (error, user) {
-    if (error) {
-      return callback(error);
-    }
+var basicStrategy = new BasicStrategy(function (username, password, done) {
+  User.findOne({ username })
+  .then(user => {
     if (!user) {
-      return callback(null, false, { message: "Incorrect username" });
+      return done(null, false, { message: "Incorrect username" });
     }
-    user.validatePassword(password, function (error, isValid) {
+    user.validatePassword(password, (error, isValid) => {
       if (error) {
-        return callback(error);
+        return done(error);
       }
       if (!isValid) {
-        return callback(null, false, { message: "Incorrect password" });
+        return done(null, false, { message: "Incorrect password" });
       }
-      return callback(null, user);
-    })
-  });
+      return done(null, user);
+    });
+  })
+
+  .catch(done);
 });
 
 passport.use(basicStrategy);
