@@ -41,7 +41,6 @@ passport.use(basicStrategy);
 
 // ================ User Routes ===================
 
-
 var compIds = (id, ...comps) => comps.some(comp => id.toString() === comp.toString());
 
 app.get('/user-dev', (req, res) => {
@@ -81,205 +80,204 @@ app.post('/users', function (req, res) {
 
   if (!username || typeof username !== 'string') {
     console.log('invalid username');
-    //send error
   }
   if (!password || typeof password !== 'string') {
     console.log('invalid password');
-    // send error
   }
   User.findOne({username: username}, function (error, user) {
     if (user) {
       console.log('dup user');
-      // send error -- dup username
     }
   })
 
-  bcrypt.genSalt(10, function(error, salt) {
+  bcrypt.genSalt(10, function (error, salt) {
     if (error) {
       return res.status(500).json({message: 'Internal server error'});
     }
-    bcrypt.hash(password, salt, function(error, hash) {
+    bcrypt.hash(password, salt, function (error, hash) {
       if (error) {
-        return res.status(500).json({message: 'Internal server error'});
+        return res.status(500).json({ message: 'Internal server error' });
       }
-      var newUser = {username: username,
-        password: hash};
+      var newUser = {
+        username: username,
+        password: hash
+      };
 
-        User.create(newUser)
-        .then(function(item) {
-          res.location(`/users/${item._id}`).status(201).json({});
-        })
-        .catch(function(err) {
-          console.log(err.errors);
-          res.status(422).json({ message: "Mongoose save threw an error" });
-        });
+      User.create(newUser)
+      .then(function(item) {
+        res.location(`/users/${item._id}`).status(201).json({});
       })
-    })
-  });
-
-  // handle password change in addition to name change
-  // production: require authentication before changes
-  app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
-    if (!compIds(req.user._id, req.params._id)) {
-      return res.status(401).json({message: 'Unauthorised'});
-    }
-    var newUser = {};
-
-    if (req.body.username) {
-      console.log('has username', req.body.username);
-      newUser.username = req.body.username;
-    }
-
-    if (req.body.password) {
-      bcryptp.genSalt(10)
-      .then((salt) => {
-        return bcryptp.hash(req.body.password, salt);
-      })
-      .then(hash => {
-        console.log(hash);
-        newUser.password = hash;
-        return User.findOneAndUpdate(
-          req.params,
-          newUser
-        )
-      })
-      .then(user => {
-        return res.status(200).json({});
-      })
-      .catch(error => {
-        console.log('error in promise');
+      .catch(function(err) {
+        console.log(err.errors);
+        res.status(422).json({ message: "Mongoose save threw an error" });
       });
-    } else {
-      User.findOneAndUpdate(
+    });
+  });
+});
+
+// handle password change in addition to name change
+// production: require authentication before changes
+app.put('/users/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
+  if (!compIds(req.user._id, req.params._id)) {
+    return res.status(401).json({message: 'Unauthorised'});
+  }
+  var newUser = {};
+
+  if (req.body.username) {
+    console.log('has username', req.body.username);
+    newUser.username = req.body.username;
+  }
+
+  if (req.body.password) {
+    bcryptp.genSalt(10)
+    .then((salt) => {
+      return bcryptp.hash(req.body.password, salt);
+    })
+    .then(hash => {
+      console.log(hash);
+      newUser.password = hash;
+      return User.findOneAndUpdate(
         req.params,
         newUser
       )
-      .then(user => {
-        return res.status(200).json({});
-      })
-      .catch(error => {
-        console.log('error in 2nd promise');
-      });
+    })
+    .then(user => {
+      return res.status(200).json({});
+    })
+    .catch(error => {
+      console.log('error in promise');
+    });
+  } else {
+    User.findOneAndUpdate(
+      req.params,
+      newUser
+    )
+    .then(user => {
+      return res.status(200).json({});
+    })
+    .catch(error => {
+      console.log('error in 2nd promise');
+    });
+  }
+});
+
+// production: authenticate first
+app.delete('/users/:_id', function(req, res) {
+  User.findOneAndRemove(req.params)
+  .then(user => {
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+    } else {
+      res.status(200).json({});
     }
   });
+});
 
-    // production: authenticate first
-    app.delete('/users/:_id', function(req, res) {
-      User.findOneAndRemove(req.params)
-      .then(user => {
-        if (!user) {
-          res.status(404).json({ message: 'User not found' });
-        } else {
-          res.status(200).json({});
-        }
-      });
+// ============ Message Routes ======================
+
+// ?? disable global message query in production?
+// production: authenticate user, return only that user's messages
+app.get('/messages', passport.authenticate('basic', {session: false}), (req, res) => {
+  console.log(req.query)
+  // do user's query
+  // filter results on authed users name (either in from or to)
+  var authId = req.user._id.toString();
+
+  Message.find(req.query)
+  .populate('from')
+  .populate('to')
+  .then(messages => {
+    var userMessages = messages.filter(
+      message => message.from._id.toString() === authId ||
+      message.to._id.toString() === authId);
+
+      res.status(200).json(userMessages);
     });
+  });
 
-    // ============ Message Routes ======================
+// curl -X POST -u bob:easy -H "Content-Type: application/json" -d {"from":"583c835c8628406d25d7519b", "to":"583c8792c759b76dba78e5a5", "text":"auth message"}' http://localhost:8080/messages
 
-    // ?? disable global message query in production?
-    // production: authenticate user, return only that user's messages
-    app.get('/messages', passport.authenticate('basic', {session: false}), (req, res) => {
-      console.log(req.query)
-      // do user's query
-      // filter results on authed users name (either in from or to)
-      var authId = req.user._id.toString();
+// production: authenticate the 'from' user
+app.post('/messages', passport.authenticate('basic', {session: false}), (req, res) => {
+  console.log(req.user);
 
-      Message.find(req.query)
-      .populate('from')
-      .populate('to')
-      .then(messages => {
-        var userMessages = messages.filter(
-          message => message.from._id.toString() === authId ||
-          message.to._id.toString() === authId);
+  new Promise((resolve, reject) => {
+    if (!req.body.text) {
+      reject('Missing field: text');
+    }
 
-          res.status(200).json(userMessages);
-        });
-      });
-
-      //curl -X POST -u bob:easy -H "Content-Type: application/json" -d {"from":"583c835c8628406d25d7519b", "to":"583c8792c759b76dba78e5a5", "text":"auth message"}' http://localhost:8080/messages
-
-      // production: authenticate the 'from' user
-      app.post('/messages', passport.authenticate('basic', {session: false}), (req, res) => {
-        console.log(req.user);
-
-        new Promise((resolve, reject) => {
-          if (!req.body.text) {
-            reject('Missing field: text');
-          }
-
-          for (property in req.body) {
-            if (typeof req.body[property] !== "string") {
-              reject(`Incorrect field type: ${property}`);
-            }
-          }
-
-          if (req.body.from !== req.user._id.toString()) {
-            reject('Did not authenticate as the "from" user.');
-          }
-
-          resolve(Promise.all([
-            User.findById(req.body.from),
-            User.findById(req.body.to)
-          ]));
-        })
-
-        .then(results => {
-          if (!results[0]) {
-            return Promise.reject('Incorrect field value: from');
-          }
-          if (!results[1]) {
-            return Promise.reject('Incorrect field value: to');
-          }
-
-          return Message.create(req.body);
-        })
-
-        .then(msg => {
-          res.status(201).location(`/messages/${msg._id}`).json({});
-        })
-
-        .catch(err => {
-          res.status(422).json({ message: err });
-        });
-
-      });
-
-      // production: authenticate either to or from
-      app.get('/messages/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
-        var authId = req.user._id;
-        Message.findOne(req.params)
-        .populate('from')
-        .populate('to')
-        .then(message => {
-          if (message) {
-            if (compIds(authId, message.from._id, message.to._id)) {
-              res.status(200).json(message);
-            } else {
-              return res.json({message: 'Unauthorised'});
-            }
-          } else {
-            res.status(404).json({ message: 'Message not found' });
-          }
-        });
-      });
-
-      function runServer(callback) {
-        var databaseUri = process.env.DATABASE_URI || global.databaseUri || DATABASE_URL;
-        mongoose.connect(databaseUri).then(function() {
-          var port = process.env.PORT || 8080;
-          var server = app.listen(port, function() {
-            console.log('Listening on port', port);
-            if (callback) {
-              callback(server);
-            }
-          });
-        });
+    for (property in req.body) {
+      if (typeof req.body[property] !== "string") {
+        reject(`Incorrect field type: ${property}`);
       }
+    }
 
-      if (require.main === module) {
-        runServer();
-      };
+    if (req.body.from !== req.user._id.toString()) {
+      reject('Did not authenticate as the "from" user.');
+    }
 
-      exports.app = app;
-      exports.runServer = runServer;
+    resolve(Promise.all([
+      User.findById(req.body.from),
+      User.findById(req.body.to)
+    ]));
+  })
+
+  .then(results => {
+    if (!results[0]) {
+      return Promise.reject('Incorrect field value: from');
+    }
+    if (!results[1]) {
+      return Promise.reject('Incorrect field value: to');
+    }
+
+    return Message.create(req.body);
+  })
+
+  .then(msg => {
+    res.status(201).location(`/messages/${msg._id}`).json({});
+  })
+
+  .catch(err => {
+    res.status(422).json({ message: err });
+  });
+
+});
+
+// production: authenticate either to or from
+app.get('/messages/:_id', passport.authenticate('basic', {session: false}), (req, res) => {
+  var authId = req.user._id;
+  Message.findOne(req.params)
+  .populate('from')
+  .populate('to')
+  .then(message => {
+    if (message) {
+      if (compIds(authId, message.from._id, message.to._id)) {
+        res.status(200).json(message);
+      } else {
+        return res.json({message: 'Unauthorised'});
+      }
+    } else {
+      res.status(404).json({ message: 'Message not found' });
+    }
+  });
+});
+
+function runServer(callback) {
+  var databaseUri = process.env.DATABASE_URI || global.databaseUri || DATABASE_URL;
+  mongoose.connect(databaseUri).then(function() {
+    var port = process.env.PORT || 8080;
+    var server = app.listen(port, function() {
+      console.log('Listening on port', port);
+      if (callback) {
+        callback(server);
+      }
+    });
+  });
+}
+
+if (require.main === module) {
+  runServer();
+};
+
+exports.app = app;
+exports.runServer = runServer;
