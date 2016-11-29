@@ -22,8 +22,10 @@ userSchema.methods.validatePassword = function(password) {
     // run bcrypt compare, then resolve or reject
     bcrypt.compare(password, this.password).then( valid =>  {
       // executes the promise's then()
+      console.log('valid', valid)
       resolve(valid);
     }).catch( err => {
+      console.log('validatePassword', err)
       // executes the promise's catch() 
       reject(err);
     });

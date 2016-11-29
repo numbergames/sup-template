@@ -15,7 +15,7 @@ var should = chai.should();
 
 chai.use(chaiHttp);
 
-xdescribe('User endpoints', function() {
+describe('User endpoints', function() {
   beforeEach(function(done) {
     // Clear the database
 
@@ -365,8 +365,21 @@ xdescribe('User endpoints', function() {
       });
     });
 
-    describe('DELETE', function() {
-      it.only('should fail when not authenticated', function() {
+    describe.only('DELETE', function() {
+
+      // it.only('should return unauthorized on unauth request', function () {
+      //   var spy = makeSpy();
+      //   // Request a non-existent user
+      //   return chai.request(app)
+      //     .delete('users/0000'))
+      //     .then(spy)
+      //     .catch(function (err) {
+      //       const res = err.response;
+      //       res.should.have.status(401);
+      //     });
+      // });
+
+      it('should fail when not authenticated', function() {
         var user = {
           username: 'joe',
           password: 'letmein'

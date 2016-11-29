@@ -31,8 +31,12 @@ var basicStrategy = new BasicStrategy((username, password, done) => {
       if (!isValid) {return done(null, false);}
       done(null, user);
 
-    }).catch(done);
+    }).catch(
+    console.log('====== HERE =====')
+      (err) => {return done(null, false, {message: 'not valid'})}
+    );
   })
+
   .catch(done);
 });
 
